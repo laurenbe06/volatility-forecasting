@@ -51,3 +51,22 @@ def qlike(realized_var, forecast_var):
     r = np.asarray(realized_var, dtype=float)
     f = np.asarray(forecast_var, dtype=float)
     return np.mean(np.log(f) + r / f)
+
+def evaluate_forecasts(proxy, forecasts):
+    """Score variance forecasts against a realized-variance proxy.
+
+    proxy:     Series of realized variance (e.g. squared returns), date-indexed
+    forecasts: DataFrame with one column of variance forecasts per model,
+               on the same dates as `proxy`
+    Returns a DataFrame of RMSE, MAE and QLIKE per model, best QLIKE first.
+    """
+    rows = {}
+    for name in forecasts.columns:
+        f = forecasts[name].clip(lower=1e-8)   # QLIKE needs positive forecasts
+        err = f - proxy
+        rows[name] = {
+            "RMSE": np.sqrt((err ** 2).mean()),
+            "MAE": err.abs().mean(),
+            "QLIKE": qlike(proxy, f),
+        }
+    return pd.DataFrame(rows).T.sort_values("QLIKE")
